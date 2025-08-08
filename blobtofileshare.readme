@@ -1,0 +1,43 @@
+To move files from Azure Blob Storage to an Azure File Share without relying on local storage, we can:
+
+Use Azure Blob Storage SDK or APIs to download the blobs directly to an Azure File Share without staging the files on a local disk.
+
+Copy the blobs directly from Blob Storage to the File Share.
+
+Updated Steps
+Use Azure Storage Client to interact directly with both Blob Storage and Azure File Shares.
+
+Mount the File Share using SMB: You can still use the New-PSDrive method to map the Azure File Share to the runbook session, but we won’t use the local filesystem to store the files in between.
+
+Updated Runbook Example
+Here's how you can update the runbook to directly copy files from Blob Storage to an Azure File Share in the cloud:
+
+Authenticate to Azure (same as before).
+
+Mount Azure File Share: You can still mount the Azure File Share using a domain account, but since there’s no C: drive, we’ll make the operation cloud-based.
+
+Key Points:
+Get-AzStorageBlobContent: The cmdlet Get-AzStorageBlobContent can be used to download the blobs directly to the mapped Azure File Share without needing a local path.
+
+No Local Disk: This updated approach avoids any dependency on a local disk (like C:) by directly moving files between Azure services (Blob Storage and File Share).
+
+Summary:
+You authenticate with Azure using a service principal or managed identity.
+
+You map the Azure File Share using the New-PSDrive cmdlet (with domain credentials).
+
+You then directly copy the files from the Azure Blob Storage to the File Share using the Get-AzStorageBlobContent cmdlet.
+
+The runbook executes all tasks directly within Azure, so no local disk is required.
+
+Error Handling & Logging (Optional):
+You might want to add error handling and logging to make sure the process is smooth and easy to debug. Here’s an example of how you could add logging:
+
+try {
+    # Your file copy logic here
+    $blob | Get-AzStorageBlobContent -Destination $fileSharePath -Context $blobServiceClient.Context
+    Write-Output "Successfully moved $blobName to the file share"
+}
+catch {
+    Write-Error "Failed to move $blobName: $_"
+}
