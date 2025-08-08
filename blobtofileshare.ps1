@@ -1,37 +1,29 @@
-# Authenticate to Azure
-$TenantId = "your-tenant-id"
-$AppId = "your-app-id"
-$Secret = ConvertTo-SecureString "your-app-secret" -AsPlainText -Force
-$PSCredential = New-Object System.Management.Automation.PSCredential($AppId, $Secret)
-Connect-AzAccount -ServicePrincipal -Credential $PSCredential -TenantId $TenantId
+# Define your Blob Storage context
+$storageAccountName = "<your-storage-account-name>"
+$containerName = "<your-container-name>"
+$fileShareName = "<your-file-share-name>"
 
-# Define Variables
-$resourceGroup = "your-resource-group"
-$storageAccountName = "your-storage-account"
-$containerName = "your-container"
-$fileShareName = "your-file-share"
-$domainAccount = "your-domain\\your-username"
-$domainPassword = "your-domain-password"
+# Create the Blob storage context using your Service Principal credentials
+$storageAccountKey = "<your-storage-account-key>"
+$context = New-AzStorageContext -StorageAccountName $storageAccountName -StorageAccountKey $storageAccountKey
 
-# Mount the Azure File Share
-$networkPath = "\\$storageAccountName.file.core.windows.net\$fileShareName"
-$securePassword = ConvertTo-SecureString $domainPassword -AsPlainText -Force
-$credentials = New-Object System.Management.Automation.PSCredential($domainAccount, $securePassword)
-
-New-PSDrive -Name "AzureFileShare" -PSProvider FileSystem -Root $networkPath -Persist -Credential $credentials
-
-# Access Blob Storage and Copy Files
-$blobServiceClient = Get-AzStorageAccount -ResourceGroupName $resourceGroup -AccountName $storageAccountName
-$container = Get-AzStorageContainer -Context $blobServiceClient.Context -Name $containerName
-$blobs = Get-AzStorageBlob -Container $container.Name -Context $blobServiceClient.Context
+# List all blobs in the container
+$blobs = Get-AzStorageBlob -Container $containerName -Context $context
 
 foreach ($blob in $blobs) {
     $blobName = $blob.Name
-    $fileSharePath = "AzureFileShare:\$blobName"
+    $localFilePath = "C:\Temp\$blobName"  # Temporary local path (in case needed)
     
-    # Download the Blob directly to the File Share
-    $blob | Get-AzStorageBlobContent -Destination $fileSharePath -Context $blobServiceClient.Context
+    # Download the blob from Blob Storage to a local file (or directly use in memory)
+    Get-AzStorageBlobContent -Blob $blobName -Container $containerName -Destination $localFilePath -Context $context
+
+    # Move the file to Azure File Share
+    $destinationFilePath = "AzureFileShare:\$blobName"
+    Move-Item -Path $localFilePath -Destination $destinationFilePath
+
+    # Clean up: Remove the local file after transferring it
+    Remove-Item -Path $localFilePath
 }
 
-# Cleanup
+# Cleanup - Remove the PSDrive to the Azure File Share
 Remove-PSDrive -Name "AzureFileShare"
